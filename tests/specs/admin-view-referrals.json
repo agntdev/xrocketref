@@ -1,19 +1,17 @@
 [
   {
-    "name": "View Recent Referrals",
+    "name": "View Recent Referrals shows empty state",
     "steps": [
       {
+        "send": { "callback": "admin:view_referrals" },
         "expect": [
           {
-            "method": "sendMessage",
+            "method": "editMessageText",
             "payload": {
-              "text": "Display latest referral records with status"
+              "text": "No referrals yet. Generate one to start tracking."
             }
           }
-        ],
-        "send": {
-          "callback": "admin:view_referrals"
-        }
+        ]
       }
     ]
   }

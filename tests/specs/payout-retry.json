@@ -1,19 +1,17 @@
 [
   {
-    "name": "Retry Failed Payout",
+    "name": "Retry Failed Payout shows empty state",
     "steps": [
       {
+        "send": { "callback": "payout:retry" },
         "expect": [
           {
-            "method": "sendMessage",
+            "method": "editMessageText",
             "payload": {
-              "text": "Retry specific failed payout transaction"
+              "text": "No failed payouts to retry."
             }
           }
-        ],
-        "send": {
-          "callback": "payout:retry"
-        }
+        ]
       }
     ]
   }
