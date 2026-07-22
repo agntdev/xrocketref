@@ -12,5 +12,22 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Back to main menu from /start",
+    "steps": [
+      {
+        "send": { "text": "/start" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      },
+      {
+        "send": { "callback": "menu:main" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "👋 Welcome! Tap a button below to get started." } }
+        ]
+      }
+    ]
   }
 ]
