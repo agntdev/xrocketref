@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Retry Failed Payout",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Retry specific failed payout transaction"
+            }
+          }
+        ],
+        "send": {
+          "callback": "payout:retry"
+        }
+      }
+    ]
+  }
+]
