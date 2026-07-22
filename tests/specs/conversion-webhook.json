@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Conversion Webhook",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Receive conversion events via POST for automatic tracking"
+            }
+          }
+        ],
+        "send": {
+          "callback": "menu:conversion-webhook"
+        }
+      }
+    ]
+  }
+]
