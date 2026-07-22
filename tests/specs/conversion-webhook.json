@@ -1,19 +1,17 @@
 [
   {
-    "name": "Conversion Webhook",
+    "name": "Conversion Webhook shows referral code prompt",
     "steps": [
       {
+        "send": { "callback": "conversion:record" },
         "expect": [
           {
-            "method": "sendMessage",
+            "method": "editMessageText",
             "payload": {
-              "text": "Receive conversion events via POST for automatic tracking"
+              "text": "Enter the referral code for the conversion you want to record."
             }
           }
-        ],
-        "send": {
-          "callback": "menu:conversion-webhook"
-        }
+        ]
       }
     ]
   }

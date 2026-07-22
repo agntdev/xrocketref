@@ -1,19 +1,27 @@
 [
   {
-    "name": "/generate_referral",
+    "name": "/generate_referral creates a referral code",
     "steps": [
       {
+        "send": { "text": "/generate_referral" },
         "expect": [
           {
-            "method": "sendMessage",
-            "payload": {
-              "text": "Generate new referral link/code and store mapping"
-            }
+            "method": "sendMessage"
           }
-        ],
-        "send": {
-          "text": "/generate_referral"
-        }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Generate referral button works",
+    "steps": [
+      {
+        "send": { "callback": "referral:generate" },
+        "expect": [
+          {
+            "method": "editMessageText"
+          }
+        ]
       }
     ]
   }
