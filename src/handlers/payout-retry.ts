@@ -4,10 +4,10 @@ import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import {
   getFailedPayouts,
   getPayout,
-  executeXRocketPayout,
+  executePayoutWithRetries,
   getOrCreateAdmin,
-  updatePayoutStatus,
   getReferral,
+  shouldAlertOnFailures,
 } from "../store.js";
 
 const composer = new Composer<Ctx>();
@@ -39,26 +39,26 @@ composer.callbackQuery("payout:retry", async (ctx) => {
     return;
   }
 
-  // Retry all failed payouts
   let succeeded = 0;
   let stillFailed = 0;
   const results: string[] = [];
 
   for (const payout of failedPayouts) {
-    const result = await executeXRocketPayout(admin.xrocket_account, payout.amount);
+    const result = await executePayoutWithRetries(payout.id, admin.xrocket_account);
+    const referral = getReferral(payout.referral_id);
     if (result.success) {
-      updatePayoutStatus(payout.id, "success", result.tx_reference);
-      const referral = getReferral(payout.referral_id);
-      results.push(`✅ Payout ${payout.id.slice(0, 8)} — $${payout.amount.toFixed(2)} (ref: ${result.tx_reference})`);
+      results.push(`✅ Payout ${payout.id.slice(0, 8)} — $${payout.amount.toFixed(2)} (ref: ${result.txReference})`);
       succeeded++;
     } else {
-      updatePayoutStatus(payout.id, "failed", undefined, result.error);
       results.push(`❌ Payout ${payout.id.slice(0, 8)} — $${payout.amount.toFixed(2)} (error: ${result.error})`);
       stillFailed++;
     }
   }
 
-  const summary = `Payout retry complete.\n\n${results.join("\n")}\n\nSucceeded: ${succeeded} | Still failed: ${stillFailed}`;
+  const alertNote = shouldAlertOnFailures()
+    ? "\n\n⚠️ High failure rate detected. Check your XRocket account."
+    : "";
+  const summary = `Payout retry complete.\n\n${results.join("\n")}\n\nSucceeded: ${succeeded} | Still failed: ${stillFailed}${alertNote}`;
   await ctx.editMessageText(summary, { reply_markup: backToMenu() });
 });
 
@@ -95,17 +95,15 @@ composer.callbackQuery(/^payout:retry:(.+)$/, async (ctx) => {
     return;
   }
 
-  const result = await executeXRocketPayout(admin.xrocket_account, payout.amount);
+  const result = await executePayoutWithRetries(payout.id, admin.xrocket_account);
   if (result.success) {
-    updatePayoutStatus(payout.id, "success", result.tx_reference);
     await ctx.editMessageText(
-      `Payout retried successfully!\n\nAmount: $${payout.amount.toFixed(2)}\nReference: ${result.tx_reference}`,
+      `Payout retried successfully!\n\nAmount: $${payout.amount.toFixed(2)}\nReference: ${result.txReference}\nAttempts: ${result.attempts}`,
       { reply_markup: backToMenu() },
     );
   } else {
-    updatePayoutStatus(payout.id, "failed", undefined, result.error);
     await ctx.editMessageText(
-      `Payout retry failed.\n\nAmount: $${payout.amount.toFixed(2)}\nError: ${result.error}\n\nTry again later or check your XRocket account.`,
+      `Payout retry failed after ${result.attempts} attempt(s).\n\nAmount: $${payout.amount.toFixed(2)}\nError: ${result.error}\n\nTry again later or check your XRocket account.`,
       { reply_markup: backToMenu() },
     );
   }

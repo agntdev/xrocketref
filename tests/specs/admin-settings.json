@@ -1,0 +1,111 @@
+[
+  {
+    "name": "Admin settings shows current config",
+    "steps": [
+      {
+        "send": { "callback": "admin:settings" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "⚙️ Admin settings\n\nXRocket account: Not set\nPayout amount: Not set"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Set XRocket account via settings flow",
+    "steps": [
+      {
+        "send": { "callback": "admin:settings" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "admin:set_account" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Send your XRocket account identifier (e.g. email or account ID)." } }
+        ]
+      },
+      {
+        "send": { "text": "merchant@example.com" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Set payout amount via settings flow",
+    "steps": [
+      {
+        "send": { "callback": "admin:settings" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "admin:set_amount" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Send the payout amount in USD (e.g. 25.00)." } }
+        ]
+      },
+      {
+        "send": { "text": "25.00" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Cancel settings flow returns to settings menu",
+    "steps": [
+      {
+        "send": { "callback": "admin:settings" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "admin:set_account" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "admin:cancel_settings" },
+        "expect": [
+          { "method": "answerCallbackQuery" },
+          { "method": "editMessageText" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Invalid payout amount shows error",
+    "steps": [
+      {
+        "send": { "callback": "admin:settings" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "admin:set_amount" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "text": "notanumber" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Invalid amount. Please enter a positive number (e.g. 25.00)." } }
+        ]
+      }
+    ]
+  }
+]

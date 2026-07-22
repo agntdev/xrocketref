@@ -8,7 +8,9 @@ import { getOrCreateAdmin } from "../store.js";
 registerMainMenuItem({ label: "🔗 Generate referral", data: "referral:generate", order: 10 });
 registerMainMenuItem({ label: "📋 View referrals", data: "admin:view_referrals", order: 20 });
 registerMainMenuItem({ label: "💳 Record conversion", data: "conversion:record", order: 30 });
-registerMainMenuItem({ label: "💸 Retry payout", data: "payout:retry", order: 40 });
+registerMainMenuItem({ label: "💸 Payout history", data: "payout:history", order: 40 });
+registerMainMenuItem({ label: "🔄 Retry payout", data: "payout:retry", order: 50 });
+registerMainMenuItem({ label: "⚙️ Settings", data: "admin:settings", order: 60 });
 
 const WELCOME = "👋 Welcome! Tap a button below to get started.";
 

@@ -1,0 +1,69 @@
+[
+  {
+    "name": "Payout history shows empty state",
+    "steps": [
+      {
+        "send": { "callback": "payout:history" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "No payouts found."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Payout history filter buttons work",
+    "steps": [
+      {
+        "send": { "callback": "payout:history" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "payout_hist:failed" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "No payouts (failed) found." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Payout history sent filter shows empty",
+    "steps": [
+      {
+        "send": { "callback": "payout:history" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "payout_hist:sent" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "No payouts (sent) found." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Payout history back to menu",
+    "steps": [
+      {
+        "send": { "callback": "payout:history" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "menu:main" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      }
+    ]
+  }
+]

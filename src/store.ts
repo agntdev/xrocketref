@@ -27,10 +27,13 @@ export interface Payout {
   referral_id: string;
   conversion_id: string;
   amount: number;
-  status: "pending" | "success" | "failed";
+  status: "pending" | "sent" | "failed";
+  attempts: number;
+  last_error?: string;
   tx_reference?: string;
   error?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface AdminProfile {
@@ -143,18 +146,28 @@ export function createPayout(
   amount: number,
 ): Payout {
   const id = randomUUID();
+  const ts = now().toISOString();
   const payout: Payout = {
     id,
     referral_id: referralId,
     conversion_id: conversionId,
     amount,
     status: "pending",
-    created_at: new Date().toISOString(),
+    attempts: 0,
+    created_at: ts,
+    updated_at: ts,
   };
   payouts.set(id, payout);
   addToListIndex(payoutsByReferral, referralId, id);
   addToListIndex(payoutsByStatus, "pending", id);
   return payout;
+}
+
+export function findPayoutByConversion(conversionId: string): Payout | undefined {
+  for (const p of payouts.values()) {
+    if (p.conversion_id === conversionId) return p;
+  }
+  return undefined;
 }
 
 export function getPayout(id: string): Payout | undefined {
@@ -164,6 +177,10 @@ export function getPayout(id: string): Payout | undefined {
 export function getFailedPayouts(): Payout[] {
   const ids = payoutsByStatus.get("failed") ?? [];
   return ids.map((id) => payouts.get(id)!).filter(Boolean);
+}
+
+export function getAllPayouts(): Payout[] {
+  return Array.from(payouts.values());
 }
 
 export function updatePayoutStatus(
@@ -180,14 +197,24 @@ export function updatePayoutStatus(
   if (idx >= 0) oldList.splice(idx, 1);
   // Update
   p.status = status;
+  p.attempts += 1;
+  p.updated_at = now().toISOString();
   if (txRef) p.tx_reference = txRef;
-  if (error) p.error = error;
+  if (error) {
+    p.last_error = error;
+    p.error = error;
+  }
   // Add to new status index
   addToListIndex(payoutsByStatus, status, id);
 }
 
 export function getPayoutsForReferral(referralId: string): Payout[] {
   const ids = payoutsByReferral.get(referralId) ?? [];
+  return ids.map((id) => payouts.get(id)!).filter(Boolean);
+}
+
+export function getPayoutsByStatus(status: Payout["status"]): Payout[] {
+  const ids = payoutsByStatus.get(status) ?? [];
   return ids.map((id) => payouts.get(id)!).filter(Boolean);
 }
 
@@ -242,6 +269,137 @@ export function _resetStore(): void {
   conversionsByReferral.clear();
   payoutsByReferral.clear();
   payoutsByStatus.clear();
+}
+
+// ─── Payout execution with retry (exponential backoff) ────────────────────────
+
+export interface PayoutExecutionResult {
+  success: boolean;
+  payoutId: string;
+  txReference?: string;
+  error?: string;
+  attempts: number;
+}
+
+const MAX_PAYOUT_RETRIES = 3;
+const RETRY_DELAYS_MS = [60_000, 300_000, 1_200_000]; // 1min, 5min, 20min
+
+export function getRetryDelay(attempt: number): number {
+  return RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+}
+
+export async function executePayoutWithRetries(
+  payoutId: string,
+  recipientAccount: string,
+): Promise<PayoutExecutionResult> {
+  const payout = payouts.get(payoutId);
+  if (!payout) return { success: false, payoutId, error: "Payout not found", attempts: 0 };
+
+  for (let attempt = 0; attempt < MAX_PAYOUT_RETRIES; attempt++) {
+    payout.attempts += 1;
+    payout.updated_at = now().toISOString();
+
+    const result = await executeXRocketPayout(recipientAccount, payout.amount);
+    if (result.success) {
+      payout.status = "sent";
+      payout.tx_reference = result.tx_reference;
+      payout.updated_at = now().toISOString();
+      // Update status index
+      const oldList = payoutsByStatus.get("pending") ?? [];
+      const idx = oldList.indexOf(payoutId);
+      if (idx >= 0) oldList.splice(idx, 1);
+      addToListIndex(payoutsByStatus, "sent", payoutId);
+      return {
+        success: true,
+        payoutId,
+        txReference: result.tx_reference,
+        attempts: payout.attempts,
+      };
+    }
+
+    payout.last_error = result.error;
+    payout.error = result.error;
+
+    if (attempt < MAX_PAYOUT_RETRIES - 1) {
+      await new Promise((resolve) => setTimeout(resolve, getRetryDelay(attempt)));
+    }
+  }
+
+  // All retries exhausted
+  payout.status = "failed";
+  payout.updated_at = now().toISOString();
+  const oldList = payoutsByStatus.get("pending") ?? [];
+  const idx = oldList.indexOf(payoutId);
+  if (idx >= 0) oldList.splice(idx, 1);
+  addToListIndex(payoutsByStatus, "failed", payoutId);
+
+  return {
+    success: false,
+    payoutId,
+    error: payout.last_error,
+    attempts: payout.attempts,
+  };
+}
+
+// ─── Auto-payout trigger ──────────────────────────────────────────────────────
+
+export interface AutoPayoutResult {
+  payoutId: string;
+  success: boolean;
+  txReference?: string;
+  error?: string;
+  attempts: number;
+}
+
+export async function triggerAutoPayout(
+  referralId: string,
+  conversionId: string,
+  amount: number,
+): Promise<AutoPayoutResult> {
+  // Idempotency: check if payout already exists for this conversion
+  const existing = findPayoutByConversion(conversionId);
+  if (existing) {
+    return {
+      payoutId: existing.id,
+      success: existing.status === "sent",
+      txReference: existing.tx_reference,
+      error: existing.error,
+      attempts: existing.attempts,
+    };
+  }
+
+  const referral = referrals.get(referralId);
+  if (!referral) {
+    return { payoutId: "", success: false, error: "Referral not found", attempts: 0 };
+  }
+
+  const admin = admins.get(referral.referrer_id);
+  if (!admin?.xrocket_account) {
+    const payout = createPayout(referralId, conversionId, amount);
+    updatePayoutStatus(payout.id, "failed", undefined, "No XRocket account configured");
+    return { payoutId: payout.id, success: false, error: "No XRocket account configured", attempts: 0 };
+  }
+
+  const payoutAmount = admin.payout_amount > 0 ? admin.payout_amount : amount;
+  const payout = createPayout(referralId, conversionId, payoutAmount);
+
+  const result = await executePayoutWithRetries(payout.id, admin.xrocket_account);
+  return {
+    payoutId: payout.id,
+    success: result.success,
+    txReference: result.txReference,
+    error: result.error,
+    attempts: result.attempts,
+  };
+}
+
+// ─── Failure threshold alert ──────────────────────────────────────────────────
+
+const FAILURE_ALERT_THRESHOLD = 5;
+
+export function shouldAlertOnFailures(): boolean {
+  const recentFailed = payoutsByStatus.get("failed") ?? [];
+  return recentFailed.length >= FAILURE_ALERT_THRESHOLD;
 }
 
 // ─── XRocket API integration ─────────────────────────────────────────────────

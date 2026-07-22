@@ -14,5 +14,46 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Retry payout without XRocket account shows config error",
+    "steps": [
+      {
+        "send": { "text": "/start" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      },
+      {
+        "send": { "callback": "referral:generate" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "conversion:record" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "text": "test1234" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      },
+      {
+        "send": { "text": "ORD-12345 49.99" },
+        "expect": [
+          { "method": "sendMessage" }
+        ]
+      },
+      {
+        "send": { "callback": "payout:retry" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "No failed payouts to retry." } }
+        ]
+      }
+    ]
   }
 ]

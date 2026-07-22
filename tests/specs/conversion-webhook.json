@@ -14,5 +14,39 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Conversion cancel returns to menu",
+    "steps": [
+      {
+        "send": { "callback": "conversion:record" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "callback": "conversion:cancel" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Conversion recording cancelled." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Conversion with invalid code shows error",
+    "steps": [
+      {
+        "send": { "callback": "conversion:record" },
+        "expect": [
+          { "method": "editMessageText" }
+        ]
+      },
+      {
+        "send": { "text": "INVALID999" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "No referral found with code \"INVALID999\". Check the code and try again." } }
+        ]
+      }
+    ]
   }
 ]
